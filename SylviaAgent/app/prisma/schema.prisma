@@ -1,0 +1,282 @@
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/mams_combined_app/app/node_modules/.prisma/client"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+// ===== MEMORY SYSTEM =====
+// 10 JSON Memory Buckets: semantic/procedural/episodic STM/LTM, diary/calendar RL, api_docs, odds_ends
+model MemoryBucket {
+  id          String   @id @default(cuid())
+  name        String   @unique // semantic_stm, semantic_ltm, procedural_stm, procedural_ltm, episodic_stm, episodic_ltm, diary_rl, calendar_rl, api_docs, odds_ends
+  description String
+  bucketType  String   // "STM", "LTM", "RL", "DOCS", "MISC"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  chunks MemoryChunk[]
+
+  @@map("memory_buckets")
+}
+
+model MemoryChunk {
+  id              String   @id @default(cuid())
+  bucketId        String
+  text            String   @db.Text
+  embedding       Float[]  // Vector embedding
+  metaVector      Float[]  // Meta information vector
+  score           Float    @default(1.0)
+  timestamp       DateTime @default(now())
+  lastAccessed    DateTime @default(now())
+  source          String
+  agentId         String?
+  metadata        Json     @default("{}")
+  
+  // Decay and reinforcement learning
+  accessCount     Int      @default(0)
+  decayRate       Float    @default(0.995)
+  
+  // Backlinking system
+  linkedChunks    MemoryLink[] @relation("SourceChunk")
+  backlinks       MemoryLink[] @relation("TargetChunk")
+  
+  bucket          MemoryBucket @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+  agent           Agent?       @relation(fields: [agentId], references: [id])
+  reflections     MemoryReflection[]
+
+  @@map("memory_chunks")
+}
+
+model MemoryLink {
+  id          String  @id @default(cuid())
+  sourceId    String
+  targetId    String
+  strength    Float   @default(1.0)
+  linkType    String  // "semantic", "causal", "temporal", "associative"
+  metadata    Json    @default("{}")
+  createdAt   DateTime @default(now())
+
+  source      MemoryChunk @relation("SourceChunk", fields: [sourceId], references: [id], onDelete: Cascade)
+  target      MemoryChunk @relation("TargetChunk", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, targetId])
+  @@map("memory_links")
+}
+
+model MemoryReflection {
+  id          String   @id @default(cuid())
+  chunkId     String
+  reflection  String   @db.Text
+  insights    Json     @default("[]")
+  createdAt   DateTime @default(now())
+  conductorId String?  // Which conductor agent generated this reflection
+
+  chunk       MemoryChunk @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+  conductor   Agent?      @relation(fields: [conductorId], references: [id])
+
+  @@map("memory_reflections")
+}
+
+// ===== AGENT SYSTEM =====
+model Agent {
+  id              String      @id @default(cuid())
+  name            String
+  type            String      // "CONDUCTOR" (Gemini), "SUBROUTINE" (OpenRouter nano)
+  model           String      // "gemini-2.0-flash", "gpt-4.1-mini"
+  apiKey          String?
+  prompt          String      @db.Text
+  systemPrompt    String      @db.Text @default("")
+  temperature     Float       @default(0.7)
+  maxTokens       Int         @default(2000)
+  
+  // Agent capabilities and configuration
+  capabilities    Json        @default("[]")
+  config          Json        @default("{}")
+  isActive        Boolean     @default(true)
+  
+  // Performance metrics
+  totalTasks      Int         @default(0)
+  successRate     Float       @default(0.0)
+  avgResponseTime Float       @default(0.0)
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  tasks           AgentTask[]
+  memories        MemoryChunk[]
+  reflections     MemoryReflection[]
+  ratings         AgentRating[]
+  skills          AgentSkill[]
+
+  @@map("agents")
+}
+
+model AgentCapability {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String
+  category    String   // "web", "analysis", "generation", "mcp"
+  config      Json     @default("{}")
+  isEnabled   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@map("agent_capabilities")
+}
+
+model AgentTask {
+  id              String      @id @default(cuid())
+  agentId         String
+  parentTaskId    String?     // For task hierarchies
+  type            String      // "REFLECTION", "SUBROUTINE", "BACKGROUND", "SCHEDULED"
+  status          String      // "PENDING", "RUNNING", "COMPLETED", "FAILED"
+  priority        Int         @default(1)
+  
+  input           Json        @default("{}")
+  output          Json?
+  error           String?
+  
+  startedAt       DateTime?
+  completedAt     DateTime?
+  scheduledFor    DateTime?
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  agent           Agent       @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  parentTask      AgentTask?  @relation("TaskHierarchy", fields: [parentTaskId], references: [id])
+  subTasks        AgentTask[] @relation("TaskHierarchy")
+
+  @@map("agent_tasks")
+}
+
+// ===== LEARNING SYSTEM =====
+model UserProfile {
+  id                String    @id @default(cuid())
+  name              String?
+  email             String?
+  
+  // 4-Color Personality System
+  personalityType   String?   // "RED", "BLUE", "GREEN", "YELLOW" or combinations
+  personalityScores Json      @default("{}")  // Detailed breakdown
+  
+  // Learning preferences
+  learningStyle     String?
+  preferences       Json      @default("{}")
+  
+  // Autonomy settings
+  autonomyLevel     Int       @default(3)     // 1-5 scale
+  autonomyEnabled   Boolean   @default(true)
+  autoReflection    Boolean   @default(true)
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  skills            UserSkill[]
+  ratings           AgentRating[]
+
+  @@map("user_profiles")
+}
+
+model UserSkill {
+  id          String      @id @default(cuid())
+  profileId   String
+  name        String
+  category    String
+  level       Float       @default(1.0)    // 1.0 - 10.0
+  confidence  Float       @default(0.5)
+  lastUpdated DateTime    @default(now())
+  
+  // Reinforcement learning data
+  interactions Int        @default(0)
+  successes    Int        @default(0)
+  failures     Int        @default(0)
+
+  profile     UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, name])
+  @@map("user_skills")
+}
+
+model AgentSkill {
+  id          String   @id @default(cuid())
+  agentId     String
+  name        String
+  proficiency Float    @default(1.0)
+  usage       Int      @default(0)
+  lastUsed    DateTime @default(now())
+
+  agent       Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, name])
+  @@map("agent_skills")
+}
+
+model AgentRating {
+  id          String      @id @default(cuid())
+  agentId     String
+  profileId   String?
+  messageId   String?
+  taskId      String?
+  
+  rating      Int         // 1-5 stars
+  feedback    String?
+  category    String?     // "helpfulness", "accuracy", "creativity", etc.
+  context     Json        @default("{}")
+  
+  createdAt   DateTime    @default(now())
+
+  agent       Agent       @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  profile     UserProfile? @relation(fields: [profileId], references: [id])
+
+  @@map("agent_ratings")
+}
+
+// ===== SYSTEM MANAGEMENT =====
+model CronJob {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String
+  schedule    String    // Cron expression
+  type        String    // "MEMORY_DECAY", "REFLECTION", "CLEANUP"
+  config      Json      @default("{}")
+  isActive    Boolean   @default(true)
+  lastRun     DateTime?
+  nextRun     DateTime?
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  executions  CronExecution[]
+
+  @@map("cron_jobs")
+}
+
+model CronExecution {
+  id          String    @id @default(cuid())
+  jobId       String
+  status      String    // "SUCCESS", "FAILED", "RUNNING"
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  output      Json?
+  error       String?
+
+  job         CronJob   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("cron_executions")
+}
+
+model SystemSettings {
+  id          String    @id @default(cuid())
+  key         String    @unique
+  value       Json
+  description String?
+  updatedAt   DateTime  @updatedAt
+
+  @@map("system_settings")
+}

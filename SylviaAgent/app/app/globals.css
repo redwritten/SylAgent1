@@ -1,0 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Nunito:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+ 
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 213 31% 91%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 224 71.4% 4.1%;
+ 
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71.4% 4.1%;
+ 
+    --primary: 262.1 83.3% 57.8%;
+    --primary-foreground: 210 20% 98%;
+ 
+    --secondary: 220 14.3% 95.9%;
+    --secondary-foreground: 220.9 39.3% 11%;
+ 
+    --muted: 220 14.3% 95.9%;
+    --muted-foreground: 220 8.9% 46.1%;
+ 
+    --accent: 220 14.3% 95.9%;
+    --accent-foreground: 220.9 39.3% 11%;
+ 
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 20% 98%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 262.1 83.3% 57.8%;
+ 
+    --radius: 0.75rem;
+
+    /* Custom pastel variables */
+    --surface: 0 0% 99%;
+    --surface-secondary: 220 14.3% 97%;
+    --text-primary: 220.9 39.3% 11%;
+    --text-secondary: 220 8.9% 46.1%;
+    --text-muted: 220 5.4% 64.9%;
+  }
+}
+ 
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-rounded;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-rounded;
+  }
+}
+
+@layer components {
+  .pastel-card {
+    @apply bg-white rounded-2xl shadow-sm border border-gray-100 p-6 transition-all duration-200 hover:shadow-md;
+  }
+  
+  .pastel-button {
+    @apply rounded-xl px-6 py-3 font-medium transition-all duration-200 hover:scale-105 active:scale-95;
+  }
+  
+  .pastel-input {
+    @apply rounded-xl border-gray-200 focus:border-pastel-purple-300 focus:ring-pastel-purple-200 focus:ring-2 focus:ring-opacity-50;
+  }
+  
+  .gradient-pastel-pink {
+    background: linear-gradient(135deg, #feeaea 0%, #fcd4d4 100%);
+  }
+  
+  .gradient-pastel-purple {
+    background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  }
+  
+  .gradient-pastel-blue {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  }
+  
+  .gradient-pastel-teal {
+    background: linear-gradient(135deg, #ccfbf1 0%, #99f6e4 100%);
+  }
+  
+  .gradient-pastel-green {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  }
+  
+  .gradient-pastel-yellow {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  }
+  
+  .gradient-pastel-coral {
+    background: linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%);
+  }
+}
